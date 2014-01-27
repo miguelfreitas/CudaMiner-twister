@@ -216,6 +216,7 @@ struct stratum_job {
 	int merkle_count;
 	unsigned char **merkle;
 	unsigned char version[4];
+	unsigned char height[4];
 	unsigned char nbits[4];
 	unsigned char ntime[4];
 	bool clean;

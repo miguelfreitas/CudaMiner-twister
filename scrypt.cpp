@@ -509,11 +509,11 @@ static inline void sha256d_msx4(uint32x4_t *hash, uint32x4_t *W,
 // Code taken from original scrypt.cpp and vectorized with minimal changes.
 //
 
-static const uint32x4_t keypadx4[12] = {
-	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000280
+static const uint32x4_t keypadx4[11] = {
+	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000002a0
 };
-static const uint32x4_t innerpadx4[11] = {
-	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004a0
+static const uint32x4_t innerpadx4[10] = {
+	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004c0
 };
 static const uint32x4_t outerpadx4[8] = {
 	0x80000000, 0, 0, 0, 0, 0, 0, 0x00000300
@@ -522,7 +522,7 @@ static const uint32x4_t finalblkx4[16] = {
 	0x00000001, 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000620
 };
 
-static inline void HMAC_SHA256_80_initx4(const uint32x4_t *key,
+static inline void HMAC_SHA256_84_initx4(const uint32x4_t *key,
 	uint32x4_t *tstate, uint32x4_t *ostate)
 {
 	uint32x4_t ihash[8];
@@ -530,8 +530,8 @@ static inline void HMAC_SHA256_80_initx4(const uint32x4_t *key,
 	int i;
 
 	/* tstate is assumed to contain the midstate of key */
-	memcpy(pad, key + 16, 4*16);
-	memcpy(pad + 4, keypadx4, 4*48);
+	memcpy(pad, key + 16, 4*20);
+	memcpy(pad + 5, keypadx4, 4*44);
 	sha256_transformx4(tstate, pad, 0);
 	memcpy(ihash, tstate, 4*32);
 
@@ -550,7 +550,7 @@ static inline void HMAC_SHA256_80_initx4(const uint32x4_t *key,
 	sha256_transformx4(tstate, pad, 0);
 }
 
-static inline void PBKDF2_SHA256_80_128x4(const uint32x4_t *tstate,
+static inline void PBKDF2_SHA256_84_128x4(const uint32x4_t *tstate,
 	const uint32x4_t *ostate, const uint32x4_t *salt, uint32x4_t *output)
 {
 	uint32x4_t istate[8], ostate2[8];
@@ -560,13 +560,13 @@ static inline void PBKDF2_SHA256_80_128x4(const uint32x4_t *tstate,
 	memcpy(istate, tstate, 4*32);
 	sha256_transformx4(istate, salt, 0);
 	
-	memcpy(ibuf, salt + 16, 4*16);
-	memcpy(ibuf + 5, innerpadx4, 4*44);
+	memcpy(ibuf, salt + 16, 4*20);
+	memcpy(ibuf + 6, innerpadx4, 4*40);
 	memcpy(obuf + 8, outerpadx4, 4*32);
 
 	for (i = 0; i < 4; i++) {
 		memcpy(obuf, istate, 4*32);
-		ibuf[4] = i + 1;
+		ibuf[5] = i + 1;
 		sha256_transformx4(obuf, ibuf, 0);
 
 		memcpy(ostate2, ostate, 4*32);
@@ -598,11 +598,11 @@ static inline void PBKDF2_SHA256_128_32x4(uint32x4_t *tstate, uint32x4_t *ostate
 // Original scrypt.cpp HMAC SHA256 functions
 //
 
-static const uint32_t keypad[12] = {
-	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000280
+static const uint32_t keypad[11] = {
+	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000002a0
 };
-static const uint32_t innerpad[11] = {
-	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004a0
+static const uint32_t innerpad[10] = {
+	0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004c0
 };
 static const uint32_t outerpad[8] = {
 	0x80000000, 0, 0, 0, 0, 0, 0, 0x00000300
@@ -611,7 +611,7 @@ static const uint32_t finalblk[16] = {
 	0x00000001, 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000620
 };
 
-static inline void HMAC_SHA256_80_init(const uint32_t *key,
+static inline void HMAC_SHA256_84_init(const uint32_t *key,
 	uint32_t *tstate, uint32_t *ostate)
 {
 	uint32_t ihash[8];
@@ -619,8 +619,8 @@ static inline void HMAC_SHA256_80_init(const uint32_t *key,
 	int i;
 
 	/* tstate is assumed to contain the midstate of key */
-	memcpy(pad, key + 16, 16);
-	memcpy(pad + 4, keypad, 48);
+	memcpy(pad, key + 16, 20);
+	memcpy(pad + 5, keypad, 44);
 	sha256_transform(tstate, pad, 0);
 	memcpy(ihash, tstate, 32);
 
@@ -639,7 +639,7 @@ static inline void HMAC_SHA256_80_init(const uint32_t *key,
 	sha256_transform(tstate, pad, 0);
 }
 
-static inline void PBKDF2_SHA256_80_128(const uint32_t *tstate,
+static inline void PBKDF2_SHA256_84_128(const uint32_t *tstate,
 	const uint32_t *ostate, const uint32_t *salt, uint32_t *output)
 {
 	uint32_t istate[8], ostate2[8];
@@ -649,13 +649,13 @@ static inline void PBKDF2_SHA256_80_128(const uint32_t *tstate,
 	memcpy(istate, tstate, 32);
 	sha256_transform(istate, salt, 0);
 	
-	memcpy(ibuf, salt + 16, 16);
-	memcpy(ibuf + 5, innerpad, 44);
+	memcpy(ibuf, salt + 16, 20);
+	memcpy(ibuf + 6, innerpad, 40);
 	memcpy(obuf + 8, outerpad, 32);
 
 	for (i = 0; i < 4; i++) {
 		memcpy(obuf, istate, 32);
-		ibuf[4] = i + 1;
+		ibuf[5] = i + 1;
 		sha256_transform(obuf, ibuf, 0);
 
 		memcpy(ostate2, ostate, 32);
@@ -698,7 +698,7 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	
 	gettimeofday(tv_start, NULL);
 	
-	uint32_t n = pdata[19] - 1;
+	uint32_t n = pdata[20] - 1;
 	const uint32_t Htarg = ptarget[7];
 	int i;
 	uint32_t *scratch = new uint32_t[N*32]; // scratchbuffer for CPU based validation
@@ -708,7 +708,7 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 	uint32_t* X[2]      = { cuda_transferbuffer(thr_id,0), cuda_transferbuffer(thr_id,1) };
 
 	bool a = parallel < 2;
-	uint32x4_t* datax4[2]   = { a ? new uint32x4_t[throughput/4 * 20] : NULL, a ? new uint32x4_t[throughput/4 * 20] : NULL };
+	uint32x4_t* datax4[2]   = { a ? new uint32x4_t[throughput/4 * 21] : NULL, a ? new uint32x4_t[throughput/4 * 21] : NULL };
 	uint32x4_t* hashx4[2]   = { a ? new uint32x4_t[throughput/4 * 8]  : NULL, a ? new uint32x4_t[throughput/4 * 8]  : NULL };
 	uint32x4_t* tstatex4[2] = { a ? new uint32x4_t[throughput/4 * 8]  : NULL, a ? new uint32x4_t[throughput/4 * 8]  : NULL };
 	uint32x4_t* ostatex4[2] = { a ? new uint32x4_t[throughput/4 * 8]  : NULL, a ? new uint32x4_t[throughput/4 * 8]  : NULL };
@@ -720,9 +720,9 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 
 	if (parallel < 2) {
 		for (i = 0; i < throughput/4; ++i) {
-			for (int j = 0; j < 20; j++) {
-				datax4[0][20*i+j] = uint32x4_t(pdata[j]);
-				datax4[1][20*i+j] = uint32x4_t(pdata[j]);
+			for (int j = 0; j < 21; j++) {
+				datax4[0][21*i+j] = uint32x4_t(pdata[j]);
+				datax4[1][21*i+j] = uint32x4_t(pdata[j]);
 			}
 		}
 	}
@@ -734,14 +734,14 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 
 	if (parallel < 2) {
 		for (i = 0; i < throughput/4; i++) {
-			datax4[cur][i * 20 + 19] = uint32x4_t(n+1, n+2, n+3, n+4);
+			datax4[cur][i * 21 + 20] = uint32x4_t(n+1, n+2, n+3, n+4);
 			n += 4;
 		}
 		for (i = 0; i < throughput/4; i++) {
 			for (int j = 0; j < 8; j++)
 				tstatex4[cur][i * 8 + j] = uint32x4_t(midstate[j]);
-			HMAC_SHA256_80_initx4(&datax4[cur][i * 20], &tstatex4[cur][i * 8], &ostatex4[cur][i * 8]);
-			PBKDF2_SHA256_80_128x4(&tstatex4[cur][i * 8], &ostatex4[cur][i * 8], &datax4[cur][i * 20], &Xx4[cur][i * 32]);
+			HMAC_SHA256_84_initx4(&datax4[cur][i * 21], &tstatex4[cur][i * 8], &ostatex4[cur][i * 8]);
+			PBKDF2_SHA256_84_128x4(&tstatex4[cur][i * 8], &ostatex4[cur][i * 8], &datax4[cur][i * 21], &Xx4[cur][i * 32]);
 		}
 
 		for (i = 0; i < throughput/4; i++) {
@@ -780,7 +780,7 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 
 		if (parallel < 2) {
 			for (i = 0; i < throughput/4; i++) {
-				datax4[nxt][i * 20 + 19] = uint32x4_t(n+1, n+2, n+3, n+4);
+				datax4[nxt][i * 21 + 20] = uint32x4_t(n+1, n+2, n+3, n+4);
 				n += 4;
 			}
 			if (parallel)
@@ -790,8 +790,8 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 					for (int k = (share_workload*share)/4; k < (share_workload*(share+1))/4 && k < throughput/4; k++) {
 						for (int l = 0; l < 8; l++)
 							tstatex4[nxt][k * 8 + l] = uint32x4_t(midstate[l]);
-							HMAC_SHA256_80_initx4(&datax4[nxt][k * 20], &tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8]);
-							PBKDF2_SHA256_80_128x4(&tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8], &datax4[nxt][k * 20], &Xx4[nxt][k * 32]);
+							HMAC_SHA256_84_initx4(&datax4[nxt][k * 21], &tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8]);
+							PBKDF2_SHA256_84_128x4(&tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8], &datax4[nxt][k * 21], &Xx4[nxt][k * 32]);
 					}
 				} );
 #else
@@ -800,8 +800,8 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 					for (int k = (share_workload*share)/4; k < (share_workload*(share+1))/4 && k < throughput/4; k++) {
 						for (int l = 0; l < 8; l++)
 							tstatex4[nxt][k * 8 + l] = uint32x4_t(midstate[l]);
-							HMAC_SHA256_80_initx4(&datax4[nxt][k * 20], &tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8]);
-							PBKDF2_SHA256_80_128x4(&tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8], &datax4[nxt][k * 20], &Xx4[nxt][k * 32]);
+							HMAC_SHA256_84_initx4(&datax4[nxt][k * 21], &tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8]);
+							PBKDF2_SHA256_84_128x4(&tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8], &datax4[nxt][k * 21], &Xx4[nxt][k * 32]);
 					}
 				}
 #endif
@@ -811,8 +811,8 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 				for (int k = 0; k < throughput/4; k++) {
 					for (int l = 0; l < 8; l++)
 						tstatex4[nxt][k * 8 + l] = uint32x4_t(midstate[l]);
-						HMAC_SHA256_80_initx4(&datax4[nxt][k * 20], &tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8]);
-						PBKDF2_SHA256_80_128x4(&tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8], &datax4[nxt][k * 20], &Xx4[nxt][k * 32]);
+						HMAC_SHA256_84_initx4(&datax4[nxt][k * 21], &tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8]);
+						PBKDF2_SHA256_84_128x4(&tstatex4[nxt][k * 8], &ostatex4[nxt][k * 8], &datax4[nxt][k * 21], &Xx4[nxt][k * 32]);
 				}
 			}
 
@@ -889,12 +889,14 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 			if (hash[cur][i * 8 + 7] <= Htarg && fulltest(hash[cur] + i * 8, ptarget)) {
 
 				// CPU based validation to rule out GPU errors (scalar CPU code)
-				uint32_t ldata[20], tstate[8], ostate[8], inp[32], ref[32], refhash[8];
-				memcpy(ldata, pdata, 80); ldata[19] = nonce[cur]+i;
+				uint32_t ldata[21], tstate[8], ostate[8], inp[32], ref[32], refhash[8];
+				memcpy(ldata, pdata, 84); ldata[20] = nonce[cur]+i;
+
 				memcpy(tstate, midstate, 32);
-				HMAC_SHA256_80_init(ldata, tstate, ostate);
-				PBKDF2_SHA256_80_128(tstate, ostate, ldata, inp);
+				HMAC_SHA256_84_init(ldata, tstate, ostate);
+				PBKDF2_SHA256_84_128(tstate, ostate, ldata, inp);
 				computeGold(inp, ref, scratch);
+
 				bool good = true;
 				if (parallel < 2) {
 					if (memcmp(&X[cur][i * 32], ref, 32*sizeof(uint32_t)) != 0) good = false;
@@ -907,8 +909,8 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 				if (!good)
 					applog(LOG_INFO, "GPU #%d: %s result does not validate on CPU (i=%d, s=%d)!", device_map[thr_id], device_name[thr_id], i, cur);
 				else {
-					*hashes_done = (n-throughput) - pdata[19] + 1;
-					pdata[19] = nonce[cur]+i;
+					*hashes_done = (n-throughput) - pdata[20] + 1;
+					pdata[20] = nonce[cur]+i;
 					result = 1; goto byebye;
 				}
 			}
@@ -916,8 +918,8 @@ int scanhash_scrypt(int thr_id, uint32_t *pdata,
 		cur = (cur+1)&1; nxt = (nxt+1)&1;
 	} while ((n-throughput) < max_nonce && !work_restart[thr_id].restart);
 	
-	*hashes_done = (n-throughput) - pdata[19] + 1;
-	pdata[19] = (n-throughput);
+	*hashes_done = (n-throughput) - pdata[20] + 1;
+	pdata[20] = (n-throughput);
 byebye:
 	delete[] datax4[0]; delete[] datax4[1]; delete[] hashx4[0]; delete[] hashx4[1];
 	delete[] tstatex4[0]; delete[] tstatex4[1]; delete[] ostatex4[0]; delete[] ostatex4[1];

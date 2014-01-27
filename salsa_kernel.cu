@@ -1061,12 +1061,12 @@ static const uint32_t host_sha256_k[64] = {
         S[(70 - i) % 8], S[(71 - i) % 8], \
         W[i] + sha256_k[i])
 
-static const uint32_t host_keypad[12] = {
-    0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00000280
+static const uint32_t host_keypad[11] = {
+    0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000002a0
 };
 
-static const uint32_t host_innerpad[11] = {
-    0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004a0
+static const uint32_t host_innerpad[10] = {
+    0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0x000004c0
 };
 
 static const uint32_t host_outerpad[8] = {
@@ -1083,17 +1083,12 @@ static const uint32_t host_finalblk[16] = {
 
 __constant__ uint32_t sha256_h[8];
 __constant__ uint32_t sha256_k[64];
-__constant__ uint32_t keypad[12];
-__constant__ uint32_t innerpad[11];
+__constant__ uint32_t keypad[11];
+__constant__ uint32_t innerpad[10];
 __constant__ uint32_t outerpad[8];
 __constant__ uint32_t finalblk[16];
-__constant__ uint32_t pdata[20];
+__constant__ uint32_t pdata[21];
 __constant__ uint32_t midstate[8];
-
-__device__ void mycpy12(uint32_t *d, const uint32_t *s) {
-#pragma unroll 3
-    for (int k=0; k < 3; k++) d[k] = s[k];
-}
 
 __device__ void mycpy16(uint32_t *d, const uint32_t *s) {
 #pragma unroll 4
@@ -1105,14 +1100,14 @@ __device__ void mycpy32(uint32_t *d, const uint32_t *s) {
     for (int k=0; k < 8; k++) d[k] = s[k];
 }
 
+__device__ void mycpy40(uint32_t *d, const uint32_t *s) {
+#pragma unroll 10
+    for (int k=0; k < 10; k++) d[k] = s[k];
+}
+
 __device__ void mycpy44(uint32_t *d, const uint32_t *s) {
 #pragma unroll 11
     for (int k=0; k < 11; k++) d[k] = s[k];
-}
-
-__device__ void mycpy48(uint32_t *d, const uint32_t *s) {
-#pragma unroll 12
-    for (int k=0; k < 12; k++) d[k] = s[k];
 }
 
 __device__ void mycpy64(uint32_t *d, const uint32_t *s) {
@@ -1250,16 +1245,16 @@ __device__ void cuda_sha256_transform(uint32_t *state, const uint32_t *block)
 // HMAC SHA256 functions, modified to work with pdata and nonce directly
 //
 
-__device__ void cuda_HMAC_SHA256_80_init(uint32_t *tstate, uint32_t *ostate, uint32_t nonce)
+__device__ void cuda_HMAC_SHA256_84_init(uint32_t *tstate, uint32_t *ostate, uint32_t nonce)
 {
     uint32_t ihash[8];
     uint32_t pad[16];
     int i;
 
     /* tstate is assumed to contain the midstate of key */
-    mycpy12(pad, pdata + 16);
-    pad[3] = nonce;
-    mycpy48(pad + 4, keypad);
+    mycpy16(pad, pdata + 16);
+    pad[4] = nonce;
+    mycpy44(pad + 5, keypad);
     cuda_sha256_transform(tstate, pad);
     mycpy32(ihash, tstate);
 
@@ -1282,7 +1277,7 @@ __device__ void cuda_HMAC_SHA256_80_init(uint32_t *tstate, uint32_t *ostate, uin
     cuda_sha256_transform(tstate, pad);
 }
 
-__device__ void cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
+__device__ void cuda_PBKDF2_SHA256_84_128(const uint32_t *tstate,
     const uint32_t *ostate, uint32_t *output, uint32_t nonce)
 {
     uint32_t istate[8], ostate2[8];
@@ -1291,10 +1286,10 @@ __device__ void cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
     mycpy32(istate, tstate);
     cuda_sha256_transform(istate, pdata);
     
-    mycpy12(ibuf, pdata + 16);
-    ibuf[3] = nonce;
-    ibuf[4] = 1;
-    mycpy44(ibuf + 5, innerpad);
+    mycpy16(ibuf, pdata + 16);
+    ibuf[4] = nonce;
+    ibuf[5] = 1;
+    mycpy40(ibuf + 6, innerpad);
 
     mycpy32(obuf, istate);
     mycpy32(obuf + 8, outerpad);
@@ -1305,7 +1300,7 @@ __device__ void cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
     mycpy32_swab32(output, ostate2);       // TODO: coalescing would be desired
 
     mycpy32(obuf, istate);
-    ibuf[4] = 2;
+    ibuf[5] = 2;
     cuda_sha256_transform(obuf, ibuf);
 
     mycpy32(ostate2, ostate);
@@ -1313,7 +1308,7 @@ __device__ void cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
     mycpy32_swab32(output+8, ostate2);     // TODO: coalescing would be desired
 
     mycpy32(obuf, istate);
-    ibuf[4] = 3;
+    ibuf[5] = 3;
     cuda_sha256_transform(obuf, ibuf);
 
     mycpy32(ostate2, ostate);
@@ -1321,7 +1316,7 @@ __device__ void cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
     mycpy32_swab32(output+16, ostate2);    // TODO: coalescing would be desired
 
     mycpy32(obuf, istate);
-    ibuf[4] = 4;
+    ibuf[5] = 4;
     cuda_sha256_transform(obuf, ibuf);
 
     mycpy32(ostate2, ostate);
@@ -1339,12 +1334,12 @@ __global__ void cuda_pre_sha256(uint32_t g_inp[32], uint32_t g_tstate_ext[8], ui
     uint32_t tstate[8], ostate[8];
     mycpy32(tstate, midstate);
 
-    cuda_HMAC_SHA256_80_init(tstate, ostate, nonce);
+    cuda_HMAC_SHA256_84_init(tstate, ostate, nonce);
 
     mycpy32(g_tstate_ext, tstate);            // TODO: coalescing would be desired
     mycpy32(g_ostate_ext, ostate);            // TODO: coalescing would be desired
 
-    cuda_PBKDF2_SHA256_80_128(tstate, ostate, g_inp, nonce);
+    cuda_PBKDF2_SHA256_84_128(tstate, ostate, g_inp, nonce);
 }
 
 __global__ void cuda_post_sha256(uint32_t g_output[8], uint32_t g_tstate_ext[8], uint32_t g_ostate_ext[8], uint32_t g_salt_ext[32])
@@ -1379,7 +1374,7 @@ __global__ void cuda_post_sha256(uint32_t g_output[8], uint32_t g_tstate_ext[8],
 // callable host code to initialize constants and to call kernels
 //
 
-extern "C" void prepare_sha256(int thr_id, uint32_t host_pdata[20], uint32_t host_midstate[8])
+extern "C" void prepare_sha256(int thr_id, uint32_t host_pdata[21], uint32_t host_midstate[8])
 {
     static bool init[8] = {false, false, false, false, false, false, false, false};
     if (!init[thr_id])
@@ -1392,7 +1387,7 @@ extern "C" void prepare_sha256(int thr_id, uint32_t host_pdata[20], uint32_t hos
         cudaMemcpyToSymbol(finalblk, host_finalblk, sizeof(host_finalblk), 0, cudaMemcpyHostToDevice);
         init[thr_id] = true;
     }
-    cudaMemcpyToSymbol(pdata, host_pdata, 20*sizeof(uint32_t), 0, cudaMemcpyHostToDevice);
+    cudaMemcpyToSymbol(pdata, host_pdata, 21*sizeof(uint32_t), 0, cudaMemcpyHostToDevice);
     cudaMemcpyToSymbol(midstate, host_midstate, 8*sizeof(uint32_t), 0, cudaMemcpyHostToDevice);
 }
 

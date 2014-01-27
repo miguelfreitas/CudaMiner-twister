@@ -57,7 +57,7 @@ char *device_name[8] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 
 #define PROGRAM_NAME		"cudaminer"
 #define PROGRAM_VERSION		"2014-01-20"
-#define DEF_RPC_URL		"http://127.0.0.1:9332/"
+#define DEF_RPC_URL		"http://127.0.0.1:28332/"
 #define LP_SCANTIME		60
 
 #ifdef __linux /* Linux specific policy and affinity management */
@@ -395,7 +395,7 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 	bool rc = false;
 
 	/* pass if the previous hash is not the current previous hash */
-	if (!submit_old && memcmp(work->data + 1, g_work.data + 1, 32)) {
+	if (!submit_old && memcmp(work->data + 2, g_work.data + 2, 32)) {
 		if (opt_debug)
 			applog(LOG_DEBUG, "DEBUG: stale work detected, discarding");
 		return true;
@@ -407,8 +407,8 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 
 		if (!work->job_id)
 			return true;
-		le32enc(&ntime, work->data[17]);
-		le32enc(&nonce, work->data[19]);
+		le32enc(&ntime, work->data[18]);
+		le32enc(&nonce, work->data[20]);
 		ntimestr = bin2hex((const unsigned char *)(&ntime), 4);
 		noncestr = bin2hex((const unsigned char *)(&nonce), 4);
 		xnonce2str = bin2hex(work->xnonce2, work->xnonce2_len);
@@ -630,11 +630,11 @@ static bool get_work(struct thr_info *thr, struct work *work)
 	struct work *work_heap;
 
 	if (opt_benchmark) {
-		memset(work->data, 0x55, 76);
-		work->data[17] = swab32((uint32_t)time(NULL));
-		memset(work->data + 19, 0x00, 52);
-		work->data[20] = 0x80000000;
-		work->data[31] = 0x00000280;
+		memset(work->data, 0x55, 80);
+		work->data[18] = swab32((uint32_t)time(NULL));
+		memset(work->data + 20, 0x00, 48);
+		work->data[21] = 0x80000000;
+		work->data[31] = 0x000002a0;
 		memset(work->target, 0x00, sizeof(work->target));
 		return true;
 	}
@@ -717,21 +717,22 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	/* Assemble block header */
 	memset(work->data, 0, 128);
 	work->data[0] = le32dec(sctx->job.version);
+	work->data[1] = le32dec(sctx->job.height);
 	for (i = 0; i < 8; i++)
-		work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
+		work->data[2 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
 	for (i = 0; i < 8; i++)
-		work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
-	work->data[17] = le32dec(sctx->job.ntime);
-	work->data[18] = le32dec(sctx->job.nbits);
-	work->data[20] = 0x80000000;
-	work->data[31] = 0x00000280;
+		work->data[10 + i] = be32dec((uint32_t *)merkle_root + i);
+	work->data[18] = le32dec(sctx->job.ntime);
+	work->data[19] = le32dec(sctx->job.nbits);
+	work->data[21] = 0x80000000;
+	work->data[31] = 0x000002a0;
 
 	pthread_mutex_unlock(&sctx->work_lock);
 
 	if (opt_debug) {
 		char *xnonce2str = bin2hex(work->xnonce2, sctx->xnonce2_size);
 		applog(LOG_DEBUG, "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
-		       work->job_id, xnonce2str, swab32(work->data[17]));
+		       work->job_id, xnonce2str, swab32(work->data[18]));
 		free(xnonce2str);
 	}
 
@@ -779,14 +780,14 @@ static void *miner_thread(void *userdata)
 			while (!*g_work.job_id || time(NULL) >= g_work_time + 120)
 				sleep(1);
 			pthread_mutex_lock(&g_work_lock);
-			if (work.data[19] >= end_nonce)
+			if (work.data[20] >= end_nonce)
 				stratum_gen_work(&stratum, &g_work);
 		} else {
 			/* obtain new work from internal workio thread */
 			pthread_mutex_lock(&g_work_lock);
 			if (!(have_longpoll || have_stratum) ||
 					time(NULL) >= g_work_time + LP_SCANTIME*3/4 ||
-					work.data[19] >= end_nonce) {
+					work.data[20] >= end_nonce) {
 				if (unlikely(!get_work(mythr, &g_work))) {
 					applog(LOG_ERR, "work retrieval failed, exiting "
 						"mining thread %d", mythr->id);
@@ -800,11 +801,11 @@ static void *miner_thread(void *userdata)
 				continue;
 			}
 		}
-		if (memcmp(work.data, g_work.data, 76)) {
+		if (memcmp(work.data, g_work.data, 80)) {
 			memcpy(&work, &g_work, sizeof(struct work));
-			work.data[19] = 0xffffffffU / opt_n_threads * thr_id;
+			work.data[20] = 0xffffffffU / opt_n_threads * thr_id;
 		} else
-			work.data[19]++;
+			work.data[20]++;
 		pthread_mutex_unlock(&g_work_lock);
 		work_restart[thr_id].restart = 0;
 		
@@ -817,10 +818,10 @@ static void *miner_thread(void *userdata)
 		max64 *= (int64_t)thr_hashrates[thr_id];
 		if (max64 <= 0)
 			max64 = opt_algo == (ALGO_SCRYPT || opt_algo == ALGO_SCRYPT_JANE) ? 0xfffLL : 0x1fffffLL; // CB
-		if (work.data[19] + max64 > end_nonce)
+		if (work.data[20] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else
-			max_nonce = (uint32_t)(work.data[19] + max64);
+			max_nonce = (uint32_t)(work.data[20] + max64);
 		
 		hashes_done = 0;
 		// CB
